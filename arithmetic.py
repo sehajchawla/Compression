@@ -13,12 +13,6 @@ def encode(x, p):
 
     p = dict([(a,p[a]) for a in p if p[a]>0])
 
-    # Compute cumulative probability as in Shannon-Fano but WITHOUT
-    # sorting the probability distrbution
-    # ...
-    # ...
-    # ...
-    # ...
     f = [0]
     for a in p: # for every probability in p
         f.append(p[a] + f[-1])
@@ -32,74 +26,32 @@ def encode(x, p):
 
     
     for k in range(len(x)): # for every symbol
-
-        # arithmetic coding is slower than vl_encode, so we display a "progress bar"
-        # to let the user know that we are processing the file and haven't crashed...
         if k % 100 == 0:
             so.write('Arithmetic encoded %d%%    \r' % int(floor(k/len(x)*100)))
             so.flush()
-
-        # 1) calculate the interval range to be the difference between hi and lo and 
-        # add 1 to the difference. The added 1 is necessary to avoid rounding issues
-        # lohi_range = ....
         lohi_range = (hi - lo) +1
-
-        # 2) narrow the interval end-points [lo,hi) to the new range [f,f+p]
-        # within the old interval [lo,hi], being careful to round 'innwards' so
-        # the code remains prefix-free (you want to use the functions ceil and
-        # floor). This will require two instructions. Note that we start computing
-        # the new 'lo', then compute the new 'hi' using the scaled probability as
-        # the offset from the new 'lo' to the new 'hi'
-        # ...
-        # ...
         lo = int(ceil(lo + (f[x[k]]*lohi_range)))
         hi = int(floor(lo + (p[x[k]]*lohi_range)))
-
-
         if (lo == hi):
             raise NameError('Zero interval!')
 
-        # Now we need to re-scale the interval if its end-points have bits in common,
-        # and output the corresponding bits where appropriate. We will do this with an
-        # infinite loop, that will break when none of the conditions for output / straddle
-        # are fulfilled
         while True:
             if hi < half: # if lo < hi < 1/2
-                # stretch the interval by 2 and output a 0 followed by 'straddle' ones (if any)
-                # and zero the straddle after that. In fact, HOLD OFF on doing the stretching:
-                # we will do the stretching at the end of the if statement
-                # ...  append a zero to the output list y
+ 
                 y.append(0)
-                # ...  extend by a sequence of 'straddle' ones
                 for i in range(straddle):
                     y.append(1)
-                # ...  zero the straddle counter
                 straddle =0
             elif lo >= half: # if hi > lo >= 1/2
-                # stretch the interval by 2 and substract 1, and output a 1 followed by 'straddle'
-                # zeros (if any) and zero straddle after that. Again, HOLD OFF on doing the stretching
-                # as this will be done after the if statement, but note that 2*interval - 1 is equivalent
-                # to 2*(interval - 1/2), so for now just substract 1/2 from the interval upper and lower
-                # bound (and don't forget that when we say "1/2" we mean the integer "half" we defined
-                # above: this is an integer arithmetic implementation!
-                # ...  append a 1 to the output list y
                 y.append(1)
                 # ...  extend 'straddle' zeros
                 for i in range(straddle):
                     y.append(0)
-
-                # ...  reset the straddle counter
                 straddle = 0
-                # ...
-                # ...  substract half from lo and hi
+
                 lo = lo - half
                 hi = hi-half
             elif lo >= quarter and hi < threequarters: # if 1/4 < lo < hi < 3/4
-                # we can increment the straddle counter and stretch the interval around
-                # the half way point. This can be impemented again as 2*(interval - 1/4),
-                # and as we will stretch by 2 after the if statement all that needs doing
-                # for now is to subtract 1/4 from the upper and lower bound
-                # ...  increment straddle
                 straddle+=1
                 # ...
                 lo = lo-quarter
@@ -107,25 +59,15 @@ def encode(x, p):
                 # ...  subtract 'quarter' from lo and hi
             else:
                 break # we break the infinite loop if the interval has reached an un-stretchable state
-            # now we can stretch the interval (for all 3 conditions above) by multiplying by 2
-            # ...  multiply lo by 2
             lo *= 2
             # ...  multiply hi by 2 and add 1 (I DON'T KNOW WHY +1 IS NECESSARY BUT IT IS. THIS IS MAGIC.
             hi = (2*hi) + 1
-            #      A BOX OF CHOCOLATES FOR ANYONE WHO GIVES ME A WELL ARGUED REASON FOR THIS... It seems
-            #      to solve a minor precision problem.)
-
-    # termination bits
-    # after processing all input symbols, flush any bits still in the 'straddle' pipeline
     straddle += 1 # adding 1 to straddle for "good measure" (ensures prefix-freeness)
     if lo < quarter: # the position of lo determines the dyadic interval that fits
-        # ...  output a zero followed by "straddle" ones
         y.append(0)
         for i in range(straddle):
             y.append(1)
-        # ...
     else:
-        # ...  output a 1 followed by "straddle" zeros
         y.append(1)
         for i in range(straddle):
             y.append(0)
